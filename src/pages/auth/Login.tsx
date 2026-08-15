@@ -17,6 +17,7 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
+
     try {
       const user = await login(phone, password)
       navigate(user.role === 'ADMIN' ? '/admin' : '/home')
@@ -31,7 +32,9 @@ export default function Login() {
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
       <div className="text-right">
         <h1 className="font-extrabold text-ink text-xl">أهلاً بيك تاني</h1>
-        <p className="text-muted text-sm mt-1">سجّل دخولك عشان تكمل التسوق</p>
+        <p className="text-muted text-sm mt-1">
+          سجّل دخولك عشان تكمل التسوق
+        </p>
       </div>
 
       <Input
@@ -43,6 +46,7 @@ export default function Login() {
         onChange={(e) => setPhone(e.target.value)}
         required
       />
+
       <Input
         label="كلمة المرور"
         type="password"
@@ -54,7 +58,10 @@ export default function Login() {
         required
       />
 
-      <Link to="/forgot-password" className="text-brand-dark text-sm font-bold self-start">
+      <Link
+        to="/forgot-password"
+        className="text-brand-dark text-sm font-bold self-start"
+      >
         نسيت كلمة المرور؟
       </Link>
 
@@ -67,10 +74,6 @@ export default function Login() {
         <Link to="/register" className="text-brand-dark font-bold">
           أنشئ حساب
         </Link>
-      </p>
-
-      <p className="text-center text-[11px] text-muted border-t border-border pt-3">
-        للتجربة: 01111111111 / customer123 (عميل) — 01000000000 / admin1234 (إدارة)
       </p>
     </form>
   )
