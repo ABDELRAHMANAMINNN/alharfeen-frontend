@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Brand */
+  --color-brand: #f59e0b;
+  --color-brand-dark: #b45309;
+  --color-brand-light: #fef3c7;
+
+  /* Ink (dark navy from the original design, kept) */
+  --color-ink: #0b0f19;
+  --color-ink-2: #0f172a;
+
+  /* Neutrals */
+  --color-surface: #f8fafc;
+  --color-surface-2: #ffffff;
+  --color-border: #e2e8f0;
+  --color-muted: #64748b;
+  --color-body: #f1f5f9;
+
+  /* Semantic */
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #0ea5e9;
+
+  --font-sans: 'Cairo', sans-serif;
+
+  --radius-card: 16px;
+  --radius-control: 12px;
+  --radius-pill: 999px;
+}
+
+html {
+  direction: rtl;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface);
+  color: var(--color-ink-2);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
