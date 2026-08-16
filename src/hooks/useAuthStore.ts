@@ -16,30 +16,37 @@ interface AuthState {
   loading: boolean
   error: string | null
   rememberMe: boolean
+
   register: (input: {
     name: string
     phone: string
     password: string
     email?: string
   }) => Promise<AuthUser>
+
   login: (
     phone: string,
     password: string,
     rememberMe: boolean
   ) => Promise<AuthUser>
+
   logout: () => void
   clearError: () => void
 }
 
 const authStorage = {
   getItem: (name: string) => {
-    return localStorage.getItem(name) ?? sessionStorage.getItem(name)
+    return (
+      localStorage.getItem(name) ??
+      sessionStorage.getItem(name)
+    )
   },
 
   setItem: (name: string, value: string) => {
     try {
       const parsed = JSON.parse(value)
-      const rememberMe = parsed?.state?.rememberMe === true
+      const rememberMe =
+        parsed?.state?.rememberMe === true
 
       if (rememberMe) {
         localStorage.setItem(name, value)
@@ -71,15 +78,20 @@ export const useAuthStore = create<AuthState>()(
       rememberMe: false,
 
       register: async (input) => {
-        set({ loading: true, error: null })
+        set({
+          loading: true,
+          error: null,
+        })
 
         try {
-          const { user, token } = await api.post<{
-            user: AuthUser
-            token: string
-          }>('/auth/register', input)
+          const { user, token } =
+            await api.post<{
+              user: AuthUser
+              token: string
+            }>('/auth/register', input)
 
-          setToken(token)
+          // New accounts are remembered by default.
+          setToken(token, true)
 
           set({
             user,
@@ -104,7 +116,11 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      login: async (phone, password, rememberMe) => {
+      login: async (
+        phone,
+        password,
+        rememberMe
+      ) => {
         set({
           loading: true,
           error: null,
@@ -112,15 +128,18 @@ export const useAuthStore = create<AuthState>()(
         })
 
         try {
-          const { user, token } = await api.post<{
-            user: AuthUser
-            token: string
-          }>('/auth/login', {
-            phone,
-            password,
-          })
+          const { user, token } =
+            await api.post<{
+              user: AuthUser
+              token: string
+            }>('/auth/login', {
+              phone,
+              password,
+            })
 
-          setToken(token)
+          // This is the important part:
+          // the checkbox decides where the token is stored.
+          setToken(token, rememberMe)
 
           set({
             user,
@@ -155,7 +174,9 @@ export const useAuthStore = create<AuthState>()(
         })
       },
 
-      clearError: () => set({ error: null }),
+      clearError: () => {
+        set({ error: null })
+      },
     }),
 
     {
@@ -164,7 +185,10 @@ export const useAuthStore = create<AuthState>()(
 
       onRehydrateStorage: () => (state) => {
         if (state?.token) {
-          setToken(state.token)
+          setToken(
+            state.token,
+            state.rememberMe
+          )
         }
       },
     }
