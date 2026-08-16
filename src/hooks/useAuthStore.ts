@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import { api, setToken, ApiClientError } from '@/services/api'
 
 export type AuthUser = {
@@ -15,11 +15,51 @@ interface AuthState {
   token: string | null
   loading: boolean
   error: string | null
-  register: (input: { name: string; phone: string; password: string; email?: string }) => Promise<AuthUser>
-  login: (phone: string, password: string) => Promise<AuthUser>
+  rememberMe: boolean
+  register: (input: {
+    name: string
+    phone: string
+    password: string
+    email?: string
+  }) => Promise<AuthUser>
+  login: (
+    phone: string,
+    password: string,
+    rememberMe: boolean
+  ) => Promise<AuthUser>
   logout: () => void
   clearError: () => void
 }
+
+const authStorage = {
+  getItem: (name: string) => {
+    return localStorage.getItem(name) ?? sessionStorage.getItem(name)
+  },
+
+  setItem: (name: string, value: string) => {
+    try {
+      const parsed = JSON.parse(value)
+      const rememberMe = parsed?.state?.rememberMe === true
+
+      if (rememberMe) {
+        localStorage.setItem(name, value)
+        sessionStorage.removeItem(name)
+      } else {
+        sessionStorage.setItem(name, value)
+        localStorage.removeItem(name)
+      }
+    } catch {
+      sessionStorage.setItem(name, value)
+    }
+  },
+
+  removeItem: (name: string) => {
+    localStorage.removeItem(name)
+    sessionStorage.removeItem(name)
+  },
+}
+
+const storage = createJSONStorage(() => authStorage)
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -28,47 +68,104 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       loading: false,
       error: null,
+      rememberMe: false,
 
       register: async (input) => {
         set({ loading: true, error: null })
+
         try {
-          const { user, token } = await api.post<{ user: AuthUser; token: string }>('/auth/register', input)
+          const { user, token } = await api.post<{
+            user: AuthUser
+            token: string
+          }>('/auth/register', input)
+
           setToken(token)
-          set({ user, token, loading: false })
+
+          set({
+            user,
+            token,
+            loading: false,
+            rememberMe: true,
+          })
+
           return user
         } catch (e) {
-          const message = e instanceof ApiClientError ? e.message : 'تعذّر إنشاء الحساب'
-          set({ loading: false, error: message })
+          const message =
+            e instanceof ApiClientError
+              ? e.message
+              : 'تعذّر إنشاء الحساب'
+
+          set({
+            loading: false,
+            error: message,
+          })
+
           throw e
         }
       },
 
-      login: async (phone, password) => {
-        set({ loading: true, error: null })
+      login: async (phone, password, rememberMe) => {
+        set({
+          loading: true,
+          error: null,
+          rememberMe,
+        })
+
         try {
-          const { user, token } = await api.post<{ user: AuthUser; token: string }>('/auth/login', { phone, password })
+          const { user, token } = await api.post<{
+            user: AuthUser
+            token: string
+          }>('/auth/login', {
+            phone,
+            password,
+          })
+
           setToken(token)
-          set({ user, token, loading: false })
+
+          set({
+            user,
+            token,
+            loading: false,
+            rememberMe,
+          })
+
           return user
         } catch (e) {
-          const message = e instanceof ApiClientError ? e.message : 'تعذّر تسجيل الدخول'
-          set({ loading: false, error: message })
+          const message =
+            e instanceof ApiClientError
+              ? e.message
+              : 'تعذّر تسجيل الدخول'
+
+          set({
+            loading: false,
+            error: message,
+          })
+
           throw e
         }
       },
 
       logout: () => {
         setToken(null)
-        set({ user: null, token: null })
+
+        set({
+          user: null,
+          token: null,
+          rememberMe: false,
+        })
       },
 
       clearError: () => set({ error: null }),
     }),
+
     {
       name: 'alharafyeen-auth',
+      storage,
+
       onRehydrateStorage: () => (state) => {
-        // Keep the API client's token store in sync with the persisted zustand state on reload
-        if (state?.token) setToken(state.token)
+        if (state?.token) {
+          setToken(state.token)
+        }
       },
     }
   )

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Phone, Lock } from 'lucide-react'
+import { Eye, EyeOff, Phone, Lock } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useAuthStore } from '@/hooks/useAuthStore'
@@ -8,6 +8,8 @@ import { useAuthStore } from '@/hooks/useAuthStore'
 export default function Login() {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const login = useAuthStore((s) => s.login)
@@ -19,7 +21,7 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const user = await login(phone, password)
+      const user = await login(phone, password, rememberMe)
       navigate(user.role === 'ADMIN' ? '/admin' : '/home')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر تسجيل الدخول')
@@ -47,23 +49,49 @@ export default function Login() {
         required
       />
 
-      <Input
-        label="كلمة المرور"
-        type="password"
-        placeholder="••••••••"
-        icon={<Lock className="size-4" />}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        error={error || undefined}
-        required
-      />
+    <Input
+      label="كلمة المرور"
+      type={showPassword ? 'text' : 'password'}
+      placeholder="••••••••"
+      icon={<Lock className="size-4" />}
+      trailingIcon={
+        <button
+          type="button"
+          onClick={() => setShowPassword((current) => !current)}
+          className="flex items-center justify-center hover:text-brand-dark transition-colors"
+          aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+        >
+          {showPassword ? (
+            <EyeOff className="size-4" />
+          ) : (
+            <Eye className="size-4" />
+          )}
+        </button>
+      }
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      error={error || undefined}
+      required
+    />
 
-      <Link
-        to="/forgot-password"
-        className="text-brand-dark text-sm font-bold self-start"
-      >
-        نسيت كلمة المرور؟
-      </Link>
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="size-4 accent-brand"
+          />
+          تذكرني
+        </label>
+
+        <Link
+          to="/forgot-password"
+          className="text-brand-dark text-sm font-bold"
+        >
+          نسيت كلمة المرور؟
+        </Link>
+      </div>
 
       <Button type="submit" fullWidth size="lg" loading={loading}>
         تسجيل الدخول
