@@ -1,6 +1,11 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import { api, setToken, ApiClientError } from '@/services/api'
+import { persist } from 'zustand/middleware'
+import {
+  api,
+  getToken,
+  setToken,
+  ApiClientError,
+} from '@/services/api'
 
 export type AuthUser = {
   id: string
@@ -15,7 +20,6 @@ interface AuthState {
   token: string | null
   loading: boolean
   error: string | null
-  rememberMe: boolean
 
   register: (input: {
     name: string
@@ -30,52 +34,22 @@ interface AuthState {
     rememberMe: boolean
   ) => Promise<AuthUser>
 
+  googleLogin: (idToken: string) => Promise<AuthUser>
+
   logout: () => void
   clearError: () => void
 }
-
-const authStorage = {
-  getItem: (name: string) => {
-    return (
-      localStorage.getItem(name) ??
-      sessionStorage.getItem(name)
-    )
-  },
-
-  setItem: (name: string, value: string) => {
-    try {
-      const parsed = JSON.parse(value)
-      const rememberMe =
-        parsed?.state?.rememberMe === true
-
-      if (rememberMe) {
-        localStorage.setItem(name, value)
-        sessionStorage.removeItem(name)
-      } else {
-        sessionStorage.setItem(name, value)
-        localStorage.removeItem(name)
-      }
-    } catch {
-      sessionStorage.setItem(name, value)
-    }
-  },
-
-  removeItem: (name: string) => {
-    localStorage.removeItem(name)
-    sessionStorage.removeItem(name)
-  },
-}
-
-const storage = createJSONStorage(() => authStorage)
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      token: null,
+
+      // Get token from localStorage OR sessionStorage
+      token: getToken(),
+
       loading: false,
       error: null,
-      rememberMe: false,
 
       register: async (input) => {
         set({
@@ -84,20 +58,18 @@ export const useAuthStore = create<AuthState>()(
         })
 
         try {
-          const { user, token } =
-            await api.post<{
-              user: AuthUser
-              token: string
-            }>('/auth/register', input)
+          const { user, token } = await api.post<{
+            user: AuthUser
+            token: string
+          }>('/auth/register', input)
 
-          // New accounts are remembered by default.
+          // Registration keeps the user logged in
           setToken(token, true)
 
           set({
             user,
             token,
             loading: false,
-            rememberMe: true,
           })
 
           return user
@@ -124,28 +96,24 @@ export const useAuthStore = create<AuthState>()(
         set({
           loading: true,
           error: null,
-          rememberMe,
         })
 
         try {
-          const { user, token } =
-            await api.post<{
-              user: AuthUser
-              token: string
-            }>('/auth/login', {
-              phone,
-              password,
-            })
+          const { user, token } = await api.post<{
+            user: AuthUser
+            token: string
+          }>('/auth/login', {
+            phone,
+            password,
+          })
 
-          // This is the important part:
-          // the checkbox decides where the token is stored.
+          // Respect Remember Me
           setToken(token, rememberMe)
 
           set({
             user,
             token,
             loading: false,
-            rememberMe,
           })
 
           return user
@@ -164,31 +132,109 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      googleLogin: async (idToken) => {
+        set({
+          loading: true,
+          error: null,
+        })
+
+        try {
+          const response = await api.post<{
+            user?: AuthUser
+            token?: string
+            isNewUser?: boolean
+            needsProfile?: boolean
+            google?: {
+              providerUserId: string
+              email: string
+              name: string
+            }
+          }>('/auth/google', {
+            idToken,
+          })
+
+          /*
+           * A brand-new Google account currently cannot be
+           * created automatically because the users table
+           * requires a phone number and password.
+           *
+           * The backend therefore asks the frontend to
+           * complete the user's profile first.
+           */
+          if (response.needsProfile) {
+            throw new Error(
+              'حساب Google تم التحقق منه. أكمل بيانات حسابك أولاً.'
+            )
+          }
+
+          if (!response.user || !response.token) {
+            throw new Error(
+              'استجابة تسجيل الدخول باستخدام Google غير مكتملة'
+            )
+          }
+
+          // Keep Google users logged in
+          setToken(response.token, true)
+
+          set({
+            user: response.user,
+            token: response.token,
+            loading: false,
+          })
+
+          return response.user
+        } catch (e) {
+          const message =
+            e instanceof ApiClientError
+              ? e.message
+              : e instanceof Error
+                ? e.message
+                : 'تعذّر تسجيل الدخول باستخدام Google'
+
+          set({
+            loading: false,
+            error: message,
+          })
+
+          throw e
+        }
+      },
+
       logout: () => {
         setToken(null)
 
         set({
           user: null,
           token: null,
-          rememberMe: false,
+          error: null,
         })
       },
 
       clearError: () => {
-        set({ error: null })
+        set({
+          error: null,
+        })
       },
     }),
 
     {
       name: 'alharafyeen-auth',
-      storage,
+
+      /*
+       * Do NOT save the JWT inside Zustand's persisted state.
+       *
+       * The JWT is controlled by localStorage/sessionStorage
+       * through setToken(), depending on Remember Me.
+       */
+      partialize: (state) => ({
+        user: state.user,
+      }),
 
       onRehydrateStorage: () => (state) => {
-        if (state?.token) {
-          setToken(
-            state.token,
-            state.rememberMe
-          )
+        if (state) {
+          const token = getToken()
+
+          state.token = token
         }
       },
     }
